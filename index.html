@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="css/leaflet.css">
+        <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
+        <link rel="stylesheet" href="css/qgis2web.css">
+        <link rel="stylesheet" href="css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="css/leaflet-search.css">
+        <link rel="stylesheet" href="css/filter.css">
+<link rel="stylesheet" href="css/nouislider.min.css">
+        <link rel="stylesheet" href="css/leaflet-control-geocoder.Geocoder.css">
+        <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        </style>
+        <title>Bản đồ phân bố Vườn quốc gia tại Việt Nam</title>
+    </head>
+    <body>
+        <div id="map">
+        </div>
+        <script src="js/qgis2web_expressions.js"></script>
+        <script src="js/leaflet.js"></script>
+        <script src="js/L.Control.Layers.Tree.min.js"></script>
+        <script src="js/multi-style-layer.js"></script>
+        <script src="js/leaflet-svg-shape-markers.min.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/rbush.min.js"></script>
+        <script src="js/labelgun.min.js"></script>
+        <script src="js/labels.js"></script>
+        <script src="js/leaflet-control-geocoder.Geocoder.js"></script>
+        <script src="js/leaflet-search.js"></script>
+        <script src="js/tailDT.js"></script>
+<script src="js/nouislider.min.js"></script>
+<script src="js/wNumb.js"></script>
+        <script src="data/gadm41_VNM_1_1.js"></script>
+        <script src="data/Min_2.js"></script>
+        <script src="data/Vnqucgia_3.js"></script>
+        <script>
+        var highlightLayer;
+        function highlightFeature(e) {
+            highlightLayer = e.target;
+
+            if (e.target.feature.geometry.type === 'LineString' || e.target.feature.geometry.type === 'MultiLineString') {
+              highlightLayer.setStyle({
+                color: '#ffff00',
+              });
+            } else {
+              highlightLayer.setStyle({
+                fillColor: '#ffff00',
+                fillOpacity: 1
+              });
+            }
+            highlightLayer.openPopup();
+        }
+        var map = L.map('map', {
+            zoomControl:false, maxZoom:28, minZoom:1
+        }).fitBounds([[6.852553198482237,94.17536791840979],[22.61445764383218,121.96091653150242]]);
+        var hash = new L.Hash(map);
+        map.attributionControl.setPrefix('<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
+        var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
+        // remove popup's row if "visible-with-data"
+        function removeEmptyRowsFromPopupContent(content, feature) {
+         var tempDiv = document.createElement('div');
+         tempDiv.innerHTML = content;
+         var rows = tempDiv.querySelectorAll('tr');
+         for (var i = 0; i < rows.length; i++) {
+             var td = rows[i].querySelector('td.visible-with-data');
+             var key = td ? td.id : '';
+             if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
+                 rows[i].parentNode.removeChild(rows[i]);
+             }
+         }
+         return tempDiv.innerHTML;
+        }
+        // add class to format popup if it contains media
+		function addClassToPopupIfMedia(content, popup) {
+			var tempDiv = document.createElement('div');
+			tempDiv.innerHTML = content;
+			if (tempDiv.querySelector('td img')) {
+				popup._contentNode.classList.add('media');
+					// Delay to force the redraw
+					setTimeout(function() {
+						popup.update();
+					}, 10);
+			} else {
+				popup._contentNode.classList.remove('media');
+			}
+		}
+        var title = new L.Control({'position':'topright'});
+        title.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'info');
+            this.update();
+            return this._div;
+        };
+        title.update = function () {
+            this._div.innerHTML = '<h2>Bản đồ phân bố Vườn quốc gia tại Việt Nam</h2>';
+        };
+        title.addTo(map);
+        var abstract = new L.Control({'position':'topright'});
+        abstract.onAdd = function (map) {
+            this._div = L.DomUtil.create('div',
+            'leaflet-control abstract');
+            this._div.id = 'abstract'
+
+                abstract.show();
+                return this._div;
+            };
+            abstract.show = function () {
+                this._div.classList.remove("abstract");
+                this._div.classList.add("abstractUncollapsed");
+                this._div.innerHTML = 'Trần Thái Bình';
+        };
+        abstract.addTo(map);
+        var zoomControl = L.control.zoom({
+            position: 'topleft'
+        }).addTo(map);
+        var bounds_group = new L.featureGroup([]);
+        function setBounds() {
+        }
+        map.createPane('pane_GoogleSatellite_0');
+        map.getPane('pane_GoogleSatellite_0').style.zIndex = 400;
+        var layer_GoogleSatellite_0 = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            pane: 'pane_GoogleSatellite_0',
+            opacity: 1.0,
+            attribution: '<a href="https://www.google.at/permissions/geoguidelines/attr-guide.html">Map data ©2015 Google</a>',
+            minZoom: 1,
+            maxZoom: 28,
+            minNativeZoom: 0,
+            maxNativeZoom: 20
+        });
+        layer_GoogleSatellite_0;
+        map.addLayer(layer_GoogleSatellite_0);
+        function pop_gadm41_VNM_1_1(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['GID_1'] !== null ? autolinker.link(String(feature.properties['GID_1']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['GID_0'] !== null ? autolinker.link(String(feature.properties['GID_0']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['COUNTRY'] !== null ? autolinker.link(String(feature.properties['COUNTRY']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['NAME_1'] !== null ? autolinker.link(String(feature.properties['NAME_1']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['VARNAME_1'] !== null ? autolinker.link(String(feature.properties['VARNAME_1']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['NL_NAME_1'] !== null ? autolinker.link(String(feature.properties['NL_NAME_1']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['TYPE_1'] !== null ? autolinker.link(String(feature.properties['TYPE_1']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['ENGTYPE_1'] !== null ? autolinker.link(String(feature.properties['ENGTYPE_1']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['CC_1'] !== null ? autolinker.link(String(feature.properties['CC_1']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['HASC_1'] !== null ? autolinker.link(String(feature.properties['HASC_1']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['ISO_1'] !== null ? autolinker.link(String(feature.properties['ISO_1']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        var pattern_gadm41_VNM_1_1_0 = new L.StripePattern({
+            weight: 0.3,
+            spaceWeight: 2.0,
+            color: '#377eb8',
+            opacity: 1.0,
+            spaceOpacity: 0,
+            angle: 225
+        });
+        pattern_gadm41_VNM_1_1_0.addTo(map);
+        function style_gadm41_VNM_1_1_0() {
+            return {
+                pane: 'pane_gadm41_VNM_1_1',
+                stroke: false,
+                fillOpacity: 1,
+                fillPattern: pattern_gadm41_VNM_1_1_0,
+                interactive: true,
+            }
+        }
+        function style_gadm41_VNM_1_1_1() {
+            return {
+                pane: 'pane_gadm41_VNM_1_1',
+                opacity: 1,
+                color: 'rgba(55,126,184,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 2.0,
+                fillOpacity: 0,
+                interactive: true,
+            }
+        }
+        map.createPane('pane_gadm41_VNM_1_1');
+        map.getPane('pane_gadm41_VNM_1_1').style.zIndex = 401;
+        map.getPane('pane_gadm41_VNM_1_1').style['mix-blend-mode'] = 'normal';
+        var layer_gadm41_VNM_1_1 = new L.geoJson.multiStyle(json_gadm41_VNM_1_1, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_gadm41_VNM_1_1',
+            layerName: 'layer_gadm41_VNM_1_1',
+            pane: 'pane_gadm41_VNM_1_1',
+            onEachFeature: pop_gadm41_VNM_1_1,
+            styles: [style_gadm41_VNM_1_1_0,style_gadm41_VNM_1_1_1,]
+        });
+        bounds_group.addLayer(layer_gadm41_VNM_1_1);
+        map.addLayer(layer_gadm41_VNM_1_1);
+        function pop_Min_2(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['Tên vư��'] !== null ? autolinker.link(String(feature.properties['Tên vư��']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['Kinh độ'] !== null ? autolinker.link(String(feature.properties['Kinh độ']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['Vĩ độ'] !== null ? autolinker.link(String(feature.properties['Vĩ độ']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['Năm thàn'] !== null ? autolinker.link(String(feature.properties['Năm thàn']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['Miền'] !== null ? autolinker.link(String(feature.properties['Miền']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['Tỉnh/Th�'] !== null ? autolinker.link(String(feature.properties['Tỉnh/Th�']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['Diện tí'] !== null ? autolinker.link(String(feature.properties['Diện tí']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['Khách tha'] !== null ? autolinker.link(String(feature.properties['Khách tha']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Min_2_0(feature) {
+            switch(String(feature.properties['Miền'])) {
+                case 'Bắc Trung Bộ':
+                    return {
+                pane: 'pane_Min_2',
+                shape: 'diamond',
+                radius: 8.8,
+                opacity: 1,
+                color: 'rgba(128,17,25,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(29,214,199,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Đông Bắc':
+                    return {
+                pane: 'pane_Min_2',
+                shape: 'diamond',
+                radius: 8.8,
+                opacity: 1,
+                color: 'rgba(128,17,25,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(211,229,74,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Đồng bằng sông Cửu Long':
+                    return {
+                pane: 'pane_Min_2',
+                shape: 'diamond',
+                radius: 8.8,
+                opacity: 1,
+                color: 'rgba(128,17,25,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(210,16,33,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Đồng bằng sông Hồng':
+                    return {
+                pane: 'pane_Min_2',
+                shape: 'diamond',
+                radius: 8.8,
+                opacity: 1,
+                color: 'rgba(128,17,25,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(121,109,200,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Đông Nam Bộ':
+                    return {
+                pane: 'pane_Min_2',
+                shape: 'diamond',
+                radius: 8.8,
+                opacity: 1,
+                color: 'rgba(128,17,25,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(176,20,238,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Nam Trung Bộ':
+                    return {
+                pane: 'pane_Min_2',
+                shape: 'diamond',
+                radius: 8.8,
+                opacity: 1,
+                color: 'rgba(128,17,25,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(112,174,239,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Tây Bắc':
+                    return {
+                pane: 'pane_Min_2',
+                shape: 'diamond',
+                radius: 8.8,
+                opacity: 1,
+                color: 'rgba(128,17,25,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(229,157,81,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Tây Nguyên':
+                    return {
+                pane: 'pane_Min_2',
+                shape: 'diamond',
+                radius: 8.8,
+                opacity: 1,
+                color: 'rgba(128,17,25,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(215,116,183,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Trung du và miền núi phía Bắc':
+                    return {
+                pane: 'pane_Min_2',
+                shape: 'diamond',
+                radius: 8.8,
+                opacity: 1,
+                color: 'rgba(128,17,25,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(86,225,31,1.0)',
+                interactive: true,
+            }
+                    break;
+            }
+        }
+        map.createPane('pane_Min_2');
+        map.getPane('pane_Min_2').style.zIndex = 402;
+        map.getPane('pane_Min_2').style['mix-blend-mode'] = 'normal';
+        var layer_Min_2 = new L.geoJson(json_Min_2, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Min_2',
+            layerName: 'layer_Min_2',
+            pane: 'pane_Min_2',
+            onEachFeature: pop_Min_2,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.shapeMarker(latlng, style_Min_2_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Min_2);
+        map.addLayer(layer_Min_2);
+        function pop_Vnqucgia_3(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Tên vườn</th>\
+                        <td>' + (feature.properties['Tên vư��'] !== null ? autolinker.link(String(feature.properties['Tên vư��']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">X</th>\
+                        <td>' + (feature.properties['Kinh độ'] !== null ? autolinker.link(String(feature.properties['Kinh độ']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Y</th>\
+                        <td>' + (feature.properties['Vĩ độ'] !== null ? autolinker.link(String(feature.properties['Vĩ độ']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Năm thành lập</th>\
+                        <td>' + (feature.properties['Năm thàn'] !== null ? autolinker.link(String(feature.properties['Năm thàn']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Miền</th>\
+                        <td>' + (feature.properties['Miền'] !== null ? autolinker.link(String(feature.properties['Miền']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tỉnh thành</th>\
+                        <td>' + (feature.properties['Tỉnh/Th�'] !== null ? autolinker.link(String(feature.properties['Tỉnh/Th�']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Diện tích</th>\
+                        <td>' + (feature.properties['Diện tí'] !== null ? autolinker.link(String(feature.properties['Diện tí']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Số lượng khách tham quan</th>\
+                        <td>' + (feature.properties['Khách tha'] !== null ? autolinker.link(String(feature.properties['Khách tha']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Vnqucgia_3_0() {
+            return {
+                pane: 'pane_Vnqucgia_3',
+                shape: 'diamond',
+                radius: 8.8,
+                opacity: 1,
+                color: 'rgba(128,17,25,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(219,30,42,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Vnqucgia_3');
+        map.getPane('pane_Vnqucgia_3').style.zIndex = 403;
+        map.getPane('pane_Vnqucgia_3').style['mix-blend-mode'] = 'normal';
+        var layer_Vnqucgia_3 = new L.geoJson(json_Vnqucgia_3, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Vnqucgia_3',
+            layerName: 'layer_Vnqucgia_3',
+            pane: 'pane_Vnqucgia_3',
+            onEachFeature: pop_Vnqucgia_3,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.shapeMarker(latlng, style_Vnqucgia_3_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Vnqucgia_3);
+        map.addLayer(layer_Vnqucgia_3);
+        var osmGeocoder = new L.Control.Geocoder({
+            collapsed: true,
+            position: 'topleft',
+            text: 'Search',
+            title: 'Testing'
+        }).addTo(map);
+        document.getElementsByClassName('leaflet-control-geocoder-icon')[0]
+        .className += ' fa fa-search';
+        document.getElementsByClassName('leaflet-control-geocoder-icon')[0]
+        .title += 'Search for a place';
+        var overlaysTree = [
+            {label: '<img src="legend/Vnqucgia_3.png" /> Vườn quốc gia', layer: layer_Vnqucgia_3},
+            {label: 'Miền<br /><table><tr><td style="text-align: center;"><img src="legend/Min_2_BắcTrungBộ0.png" /></td><td>Bắc Trung Bộ</td></tr><tr><td style="text-align: center;"><img src="legend/Min_2_ĐôngBắc1.png" /></td><td>Đông Bắc</td></tr><tr><td style="text-align: center;"><img src="legend/Min_2_ĐồngbằngsôngCửuLong2.png" /></td><td>Đồng bằng sông Cửu Long</td></tr><tr><td style="text-align: center;"><img src="legend/Min_2_ĐồngbằngsôngHồng3.png" /></td><td>Đồng bằng sông Hồng</td></tr><tr><td style="text-align: center;"><img src="legend/Min_2_ĐôngNamBộ4.png" /></td><td>Đông Nam Bộ</td></tr><tr><td style="text-align: center;"><img src="legend/Min_2_NamTrungBộ5.png" /></td><td>Nam Trung Bộ</td></tr><tr><td style="text-align: center;"><img src="legend/Min_2_TâyBắc6.png" /></td><td>Tây Bắc</td></tr><tr><td style="text-align: center;"><img src="legend/Min_2_TâyNguyên7.png" /></td><td>Tây Nguyên</td></tr><tr><td style="text-align: center;"><img src="legend/Min_2_TrungduvàmiềnnúiphíaBắc8.png" /></td><td>Trung du và miền núi phía Bắc</td></tr></table>', layer: layer_Min_2},
+            {label: '<img src="legend/gadm41_VNM_1_1.png" /> gadm41_VNM_1', layer: layer_gadm41_VNM_1_1},
+            {label: "Google Satellite", layer: layer_GoogleSatellite_0},]
+        var lay = L.control.layers.tree(null, overlaysTree,{
+            //namedToggle: true,
+            //selectorBack: false,
+            //closedSymbol: '&#8862; &#x1f5c0;',
+            //openedSymbol: '&#8863; &#x1f5c1;',
+            //collapseAll: 'Collapse all',
+            //expandAll: 'Expand all',
+            collapsed: true,
+        });
+        lay.addTo(map);
+        setBounds();
+        var i = 0;
+        layer_gadm41_VNM_1_1.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['NAME_1'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'MS Shell Dlg 2\', sans-serif;">' + layer.feature.properties['NAME_1']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_gadm41_VNM_1_1'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        var i = 0;
+        layer_Min_2.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['Tên vư��'] !== null?String('<div style="color: #fc0000; font-size: 15pt; font-weight: bold; font-family: \'Times New Roman\', sans-serif;">' + layer.feature.properties['Tên vư��']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Min_2'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        var i = 0;
+        layer_Vnqucgia_3.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['Tên vư��'] !== null?String('<div style="color: #fc0000; font-size: 15pt; font-weight: bold; font-family: \'Times New Roman\', sans-serif;">' + layer.feature.properties['Tên vư��']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Vnqucgia_3'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        map.addControl(new L.Control.Search({
+            layer: layer_Vnqucgia_3,
+            initial: false,
+            hideMarkerOnCollapse: true,
+            propertyName: 'Miền'}));
+        document.getElementsByClassName('search-button')[0].className +=
+         ' fa fa-binoculars';
+        var mapDiv = document.getElementById('map');
+        var row = document.createElement('div');
+        row.className="row";
+        row.id="all";
+        row.style.height = "100%";
+        var col1 = document.createElement('div');
+        col1.className="col9";
+        col1.id = "mapWindow";
+        col1.style.height = "99%";
+        col1.style.width = "80%";
+        col1.style.display = "inline-block";
+        var col2 = document.createElement('div');
+        col2.className="col3";
+        col2.id = "menu";
+        col2.style.display = "inline-block";
+        mapDiv.parentNode.insertBefore(row, mapDiv);
+        document.getElementById("all").appendChild(col1);
+        document.getElementById("all").appendChild(col2);
+        col1.appendChild(mapDiv)
+        var Filters = {"Miền": "str","Tên vư��": "str"};
+        function filterFunc() {
+          map.eachLayer(function(lyr){
+          if ("options" in lyr && "dataVar" in lyr["options"]){
+            features = this[lyr["options"]["dataVar"]].features.slice(0);
+            try{
+              for (key in Filters){
+                keyS = key.replace(/[^a-zA-Z0-9_]/g, "")
+                if (Filters[key] == "str" || Filters[key] == "bool"){
+                  var selection = [];
+                  var options = document.getElementById("sel_" + keyS).options
+                  for (var i=0; i < options.length; i++) {
+                    if (options[i].selected) selection.push(options[i].value);
+                  }
+                    try{
+                      if (key in features[0].properties){
+                        for (i = features.length - 1;
+                          i >= 0; --i){
+                          if (selection.indexOf(
+                          features[i].properties[key])<0
+                          && selection.length>0) {
+                          features.splice(i,1);
+                          }
+                        }
+                      }
+                    } catch(err){
+                  }
+                }
+                if (Filters[key] == "int"){
+                  sliderVals =  document.getElementById(
+                    "div_" + keyS).noUiSlider.get();
+                  try{
+                    if (key in features[0].properties){
+                    for (i = features.length - 1; i >= 0; --i){
+                      if (parseInt(features[i].properties[key])
+                          < sliderVals[0]
+                          || parseInt(features[i].properties[key])
+                          > sliderVals[1]){
+                            features.splice(i,1);
+                          }
+                        }
+                      }
+                    } catch(err){
+                    }
+                  }
+                if (Filters[key] == "real"){
+                  sliderVals =  document.getElementById(
+                    "div_" + keyS).noUiSlider.get();
+                  try{
+                    if (key in features[0].properties){
+                    for (i = features.length - 1; i >= 0; --i){
+                      if (features[i].properties[key]
+                          < sliderVals[0]
+                          || features[i].properties[key]
+                          > sliderVals[1]){
+                            features.splice(i,1);
+                          }
+                        }
+                      }
+                    } catch(err){
+                    }
+                  }
+                if (Filters[key] == "date"
+                  || Filters[key] == "datetime"
+                  || Filters[key] == "time"){
+                  try{
+                    if (key in features[0].properties){
+                      HTMLkey = key.replace(/[&\/\\#,+()$~%.'":*?<>{} ]/g, '');
+                      startdate = document.getElementById("dat_" +
+                        HTMLkey + "_date1").value.replace(" ", "T");
+                      enddate = document.getElementById("dat_" +
+                        HTMLkey + "_date2").value.replace(" ", "T");
+                      for (i = features.length - 1; i >= 0; --i){
+                        if (features[i].properties[key] < startdate
+                          || features[i].properties[key] > enddate){
+                          features.splice(i,1);
+                        }
+                      }
+                    }
+                  } catch(err){
+                  }
+                }
+              }
+            } catch(err){
+            }
+          this[lyr["options"]["layerName"]].clearLayers();
+          this[lyr["options"]["layerName"]].addData(features);
+        var i = 0;
+        layer_gadm41_VNM_1_1.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['NAME_1'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'MS Shell Dlg 2\', sans-serif;">' + layer.feature.properties['NAME_1']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_gadm41_VNM_1_1'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        var i = 0;
+        layer_Min_2.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['Tên vư��'] !== null?String('<div style="color: #fc0000; font-size: 15pt; font-weight: bold; font-family: \'Times New Roman\', sans-serif;">' + layer.feature.properties['Tên vư��']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Min_2'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        var i = 0;
+        layer_Vnqucgia_3.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['Tên vư��'] !== null?String('<div style="color: #fc0000; font-size: 15pt; font-weight: bold; font-family: \'Times New Roman\', sans-serif;">' + layer.feature.properties['Tên vư��']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Vnqucgia_3'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+          }
+          })
+        }
+            document.getElementById("menu").appendChild(
+                document.createElement("div"));
+            var div_Min = document.createElement('div');
+            div_Min.id = "div_Min";
+            div_Min.className= "filterselect";
+            document.getElementById("menu").appendChild(div_Min);
+            sel_Min = document.createElement('select');
+            sel_Min.multiple = true;
+            sel_Min.size = 9;
+            sel_Min.id = "sel_Min";
+            var Min_options_str = "<option value='' unselected></option>";
+            sel_Min.onchange = function(){filterFunc()};
+            Min_options_str  += '<option value="Bắc Trung Bộ">Bắc Trung Bộ</option>';
+            Min_options_str  += '<option value="Nam Trung Bộ">Nam Trung Bộ</option>';
+            Min_options_str  += '<option value="Trung du và miền núi phía Bắc">Trung du và miền núi phía Bắc</option>';
+            Min_options_str  += '<option value="Tây Bắc">Tây Bắc</option>';
+            Min_options_str  += '<option value="Tây Nguyên">Tây Nguyên</option>';
+            Min_options_str  += '<option value="Đông Bắc">Đông Bắc</option>';
+            Min_options_str  += '<option value="Đông Nam Bộ">Đông Nam Bộ</option>';
+            Min_options_str  += '<option value="Đồng bằng sông Cửu Long">Đồng bằng sông Cửu Long</option>';
+            Min_options_str  += '<option value="Đồng bằng sông Hồng">Đồng bằng sông Hồng</option>';
+            sel_Min.innerHTML = Min_options_str;
+            div_Min.appendChild(sel_Min);
+            var lab_Min = document.createElement('div');
+            lab_Min.innerHTML = 'Miền';
+            lab_Min.className = 'filterlabel';
+            div_Min.appendChild(lab_Min);
+            var reset_Min = document.createElement('div');
+            reset_Min.innerHTML = 'clear filter';
+            reset_Min.className = 'filterlabel';
+            reset_Min.onclick = function() {
+                var options = document.getElementById("sel_Min").options;
+                for (var i=0; i < options.length; i++) {
+                    options[i].selected = false;
+                }
+                filterFunc();
+            };
+            div_Min.appendChild(reset_Min);
+            document.getElementById("menu").appendChild(
+                document.createElement("div"));
+            var div_Tnv = document.createElement('div');
+            div_Tnv.id = "div_Tnv";
+            div_Tnv.className= "filterselect";
+            document.getElementById("menu").appendChild(div_Tnv);
+            sel_Tnv = document.createElement('select');
+            sel_Tnv.multiple = true;
+            sel_Tnv.size = 10;
+            sel_Tnv.id = "sel_Tnv";
+            var Tnv_options_str = "<option value='' unselected></option>";
+            sel_Tnv.onchange = function(){filterFunc()};
+            Tnv_options_str  += '<option value="Ba Bể">Ba Bể</option>';
+            Tnv_options_str  += '<option value="Ba Vì">Ba Vì</option>';
+            Tnv_options_str  += '<option value="Bidoup Núi Bà">Bidoup Núi Bà</option>';
+            Tnv_options_str  += '<option value="Bái Tử Long">Bái Tử Long</option>';
+            Tnv_options_str  += '<option value="Bù Gia Mập">Bù Gia Mập</option>';
+            Tnv_options_str  += '<option value="Bạch Mã">Bạch Mã</option>';
+            Tnv_options_str  += '<option value="Bến En">Bến En</option>';
+            Tnv_options_str  += '<option value="Chư Mom Ray">Chư Mom Ray</option>';
+            Tnv_options_str  += '<option value="Chư Yang Sin">Chư Yang Sin</option>';
+            Tnv_options_str  += '<option value="Cát Bà">Cát Bà</option>';
+            Tnv_options_str  += '<option value="Cát Tiên">Cát Tiên</option>';
+            Tnv_options_str  += '<option value="Côn Đảo">Côn Đảo</option>';
+            Tnv_options_str  += '<option value="Cúc Phương">Cúc Phương</option>';
+            Tnv_options_str  += '<option value="Du Già">Du Già</option>';
+            Tnv_options_str  += '<option value="Hoàng Liên">Hoàng Liên</option>';
+            Tnv_options_str  += '<option value="Kon Ka Kinh">Kon Ka Kinh</option>';
+            Tnv_options_str  += '<option value="Lò Gò – Xa Mát">Lò Gò – Xa Mát</option>';
+            Tnv_options_str  += '<option value="Mũi Cà Mau">Mũi Cà Mau</option>';
+            Tnv_options_str  += '<option value="Núi Chúa">Núi Chúa</option>';
+            Tnv_options_str  += '<option value="Phia Oắc – Phia Đén">Phia Oắc – Phia Đén</option>';
+            Tnv_options_str  += '<option value="Phong Nha – Kẻ Bàng">Phong Nha – Kẻ Bàng</option>';
+            Tnv_options_str  += '<option value="Phú Quốc">Phú Quốc</option>';
+            Tnv_options_str  += '<option value="Pù Mát">Pù Mát</option>';
+            Tnv_options_str  += '<option value="Tam Đảo">Tam Đảo</option>';
+            Tnv_options_str  += '<option value="Tràm Chim">Tràm Chim</option>';
+            Tnv_options_str  += '<option value="Tà Đùng">Tà Đùng</option>';
+            Tnv_options_str  += '<option value="U Minh Hạ">U Minh Hạ</option>';
+            Tnv_options_str  += '<option value="U Minh Thượng">U Minh Thượng</option>';
+            Tnv_options_str  += '<option value="Vũ Quang">Vũ Quang</option>';
+            Tnv_options_str  += '<option value="Xuân Sơn">Xuân Sơn</option>';
+            Tnv_options_str  += '<option value="Xuân Thủy">Xuân Thủy</option>';
+            sel_Tnv.innerHTML = Tnv_options_str;
+            div_Tnv.appendChild(sel_Tnv);
+            var lab_Tnv = document.createElement('div');
+            lab_Tnv.innerHTML = 'Tên vư��';
+            lab_Tnv.className = 'filterlabel';
+            div_Tnv.appendChild(lab_Tnv);
+            var reset_Tnv = document.createElement('div');
+            reset_Tnv.innerHTML = 'clear filter';
+            reset_Tnv.className = 'filterlabel';
+            reset_Tnv.onclick = function() {
+                var options = document.getElementById("sel_Tnv").options;
+                for (var i=0; i < options.length; i++) {
+                    options[i].selected = false;
+                }
+                filterFunc();
+            };
+            div_Tnv.appendChild(reset_Tnv);
+        resetLabels([layer_gadm41_VNM_1_1,layer_Min_2,layer_Vnqucgia_3]);
+        map.on("zoomend", function(){
+            resetLabels([layer_gadm41_VNM_1_1,layer_Min_2,layer_Vnqucgia_3]);
+        });
+        map.on("layeradd", function(){
+            resetLabels([layer_gadm41_VNM_1_1,layer_Min_2,layer_Vnqucgia_3]);
+        });
+        map.on("layerremove", function(){
+            resetLabels([layer_gadm41_VNM_1_1,layer_Min_2,layer_Vnqucgia_3]);
+        });
+        </script>
+    </body>
+</html>
